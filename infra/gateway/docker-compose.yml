@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  # API Gateway (Nginx)
+  gateway:
+    build:
+      context: ../..
+      dockerfile: infra/gateway/Dockerfile
+    container_name: conduit-gateway
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - conduit-network
+
+  # Backend API
+  backend:
+    build:
+      context: ../..
+      dockerfile: infra/apis/backend/Dockerfile
+    container_name: conduit-backend
+    environment:
+      - PORT=3001
+      - JWT_KEY=supersecretkey
+      - DEV_DB_USERNAME=postgres
+      - DEV_DB_PASSWORD=postgres
+      - DEV_DB_NAME=conduit_development
+      - DEV_DB_HOSTNAME=postgres
+      - DEV_DB_DIALECT=postgres
+    depends_on:
+      - postgres
+    networks:
+      - conduit-network
+
+  # Frontend
+  frontend:
+    build:
+      context: ../..
+      dockerfile: infra/apis/frontend/Dockerfile
+    container_name: conduit-frontend
+    networks:
+      - conduit-network
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: conduit-postgres
+    environment:
+      - POSTGRES_DB=conduit_development
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - conduit-network
+
+networks:
+  conduit-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
