@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: conduit-frontend-service
+  namespace: conduit
+  labels:
+    app: conduit-frontend
+spec:
+  type: ClusterIP
+  selector:
+    app: conduit-frontend
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 80
