@@ -4,14 +4,15 @@ Infraestrutura como código para provisionar recursos Azure do projeto Conduit.
 
 ## Recursos Provisionados
 
-### Compute (VMs)
-- **vm-docker**: VM para rodar backend em Docker (Standard_D2s_v3)
-- **vm-ci**: VM para CI/CD (Standard_D2s_v3)
+### Compute (VM)
+- **vm-app**: VM única para Docker e CI/CD (Standard_D2s_v3)
+  - *Nota*: Docker e CI foram combinados na mesma VM devido a limitações de quota da conta Azure
 - Network Security Group com regras para SSH, HTTP, HTTPS
 
 ### Kubernetes (AKS)
 - **aks-conduit**: Cluster Kubernetes
-- 2 nodes workers (Standard_D2as_v4)
+- 1 node worker (Standard_D2as_v4)
+  - *Nota*: Reduzido para 1 node devido a limitações de quota da conta Azure
 - Network plugin: Azure CNI
 - Network policy: Calico
 
@@ -84,9 +85,8 @@ terraform apply
 Após o apply, você terá acesso a:
 
 ```bash
-# IPs públicos das VMs
-terraform output docker_vm_public_ip
-terraform output ci_vm_public_ip
+# IP público da VM
+terraform output app_vm_public_ip
 
 # Cluster AKS
 terraform output aks_cluster_name
@@ -98,6 +98,15 @@ az aks get-credentials --resource-group rg-conduit-devops --name aks-conduit
 terraform output postgres_server_fqdn
 terraform output postgres_database_name
 ```
+
+## Justificativa da Arquitetura
+
+Devido a limitações de quota na conta Azure utilizada, a infraestrutura foi otimizada:
+
+- **1 VM** (Standard_D2s_v3) combina Docker e CI/CD
+- **AKS com 1 node** (Standard_D2as_v4) ao invés de 2
+
+Esta configuração mantém todos os requisitos funcionais do projeto, com recursos consolidados para adequação aos limites da conta.
 
 ## Destruir infraestrutura
 

@@ -10,14 +10,8 @@ variable "location" {
   default     = "North Central US"
 }
 
-variable "vm_size_docker" {
-  description = "Tamanho da VM para Docker"
-  type        = string
-  default     = "Standard_D2s_v3"
-}
-
-variable "vm_size_ci" {
-  description = "Tamanho da VM para CI"
+variable "vm_size_app" {
+  description = "Tamanho da VM para Docker e CI (combinados)"
   type        = string
   default     = "Standard_D2s_v3"
 }
@@ -49,7 +43,7 @@ variable "postgres_admin_password" {
 variable "aks_node_count" {
   description = "Número de nodes no AKS"
   type        = number
-  default     = 2
+  default     = 1
 }
 
 variable "aks_node_vm_size" {

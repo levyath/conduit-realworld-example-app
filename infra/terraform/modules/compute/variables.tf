@@ -13,13 +13,8 @@ variable "subnet_id" {
   type        = string
 }
 
-variable "vm_size_docker" {
-  description = "Tamanho da VM Docker"
-  type        = string
-}
-
-variable "vm_size_ci" {
-  description = "Tamanho da VM CI"
+variable "vm_size_app" {
+  description = "Tamanho da VM de Aplicação (Docker + CI)"
   type        = string
 }
 

@@ -1,11 +1,6 @@
-output "docker_vm_public_ip" {
-  description = "IP público da VM Docker"
-  value       = module.compute.docker_vm_public_ip
-}
-
-output "ci_vm_public_ip" {
-  description = "IP público da VM CI"
-  value       = module.compute.ci_vm_public_ip
+output "app_vm_public_ip" {
+  description = "IP público da VM de Aplicação (Docker + CI)"
+  value       = module.compute.app_vm_public_ip
 }
 
 output "aks_cluster_name" {

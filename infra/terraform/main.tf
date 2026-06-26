@@ -47,15 +47,14 @@ resource "azurerm_subnet" "aks" {
   address_prefixes     = ["10.0.2.0/24"]
 }
 
-# Módulo Compute (VMs)
+# Módulo Compute (VM combinada)
 module "compute" {
   source = "./modules/compute"
 
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
   subnet_id           = azurerm_subnet.vms.id
-  vm_size_docker      = var.vm_size_docker
-  vm_size_ci          = var.vm_size_ci
+  vm_size_app         = var.vm_size_app
   admin_username      = var.admin_username
   admin_password      = var.admin_password
 }
