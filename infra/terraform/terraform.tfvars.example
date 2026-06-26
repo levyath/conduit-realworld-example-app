@@ -1,0 +1,17 @@
+# Resource Group
+resource_group_name = "rg-conduit-devops"
+location            = "North Central US"
+
+# VMs
+vm_size_docker = "Standard_D2s_v3"
+vm_size_ci     = "Standard_D2s_v3"
+admin_username = "azureuser"
+admin_password = "SuaSenhaSegura123!"
+
+# AKS
+aks_node_count   = 2
+aks_node_vm_size = "Standard_D2as_v4"
+
+# PostgreSQL
+postgres_admin_login    = "psqladmin"
+postgres_admin_password = "SuaSenhaBanco123!"
