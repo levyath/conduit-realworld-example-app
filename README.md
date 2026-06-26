@@ -4,9 +4,58 @@
 
 This codebase was created to demonstrate a fully fledged fullstack application built with **React / Vite + SWC / Express.js / Sequelize / PostgreSQL** including CRUD operations, authentication, routing, pagination, and more.
 
-**[Demo app](https://conduit-realworld-example-app.fly.dev/)&nbsp;&nbsp;|&nbsp;&nbsp;[With Create React App](https://github.com/TonyMckes/conduit-realworld-example-app/tree/create-react-app)&nbsp;&nbsp;|&nbsp;&nbsp;[Other RealWorld Example Apps](https://codebase.show/projects/realworld?category=fullstack)**
+**Original Repository:** https://github.com/TonyMckes/conduit-realworld-example-app
 
-> For more information on how to this works with other frontends/backends, head over to the [RealWorld](https://github.com/gothinkster/realworld) repo.
+**[Demo app](https://conduit-realworld-example-app.fly.dev/)&nbsp;&nbsp;|&nbsp;&nbsp;[RealWorld spec](https://realworld.io/)&nbsp;&nbsp;|&nbsp;&nbsp;[Other RealWorld Examples](https://codebase.show/projects/realworld?category=fullstack)**
+
+---
+
+## APIs Documentation
+
+### API 1 - Backend (Express.js)
+
+**Location:** `backend/`  
+**Language:** Node.js + Express  
+**Port:** 3001  
+
+**Responsibilities:**
+- User authentication (register, login, JWT)
+- Articles CRUD operations
+- Comments system
+- Tags management
+- User profiles
+- Favorites
+
+**Main routes:**
+- `POST /api/users` - User registration
+- `POST /api/users/login` - User login
+- `GET /api/articles` - List articles
+- `POST /api/articles` - Create article
+- `GET /api/profiles/:username` - Get user profile
+
+### API 2 - Frontend (React)
+
+**Location:** `frontend/`  
+**Language:** JavaScript/React  
+**Port:** 3000  
+
+**Responsibilities:**
+- User interface
+- Backend API consumption
+- Articles and profiles rendering
+- Forms and validation
+
+### Database
+
+**Type:** PostgreSQL  
+**ORM:** Sequelize  
+**Port:** 5432  
+
+**Main tables:**
+- Users
+- Articles
+- Comments
+- Tags
 
 ---
 
