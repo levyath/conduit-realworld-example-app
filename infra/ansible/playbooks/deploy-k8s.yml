@@ -1,0 +1,75 @@
+---
+- name: Deploy Frontend no Kubernetes
+  hosts: localhost
+  connection: local
+  
+  vars:
+    k8s_manifests_dir: "../../kubernetes"
+    
+  tasks:
+    - name: Verificar se kubectl está instalado
+      command: kubectl version --client
+      register: kubectl_check
+      changed_when: false
+
+    - name: Aplicar namespace
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ k8s_manifests_dir }}/namespace.yaml"
+
+    - name: Aplicar ResourceQuota
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ k8s_manifests_dir }}/resource-quota.yaml"
+
+    - name: Aplicar LimitRange
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ k8s_manifests_dir }}/limit-range.yaml"
+
+    - name: Aplicar Deployment do Frontend
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ k8s_manifests_dir }}/deployment.yaml"
+
+    - name: Aplicar Service
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ k8s_manifests_dir }}/service.yaml"
+
+    - name: Aplicar HPA
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ k8s_manifests_dir }}/hpa.yaml"
+
+    - name: Aplicar Ingress
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ k8s_manifests_dir }}/ingress.yaml"
+
+    - name: Aplicar StatefulSet do PostgreSQL
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ k8s_manifests_dir }}/database/statefulset-replica.yaml"
+
+    - name: Aguardar pods ficarem prontos
+      kubernetes.core.k8s_info:
+        kind: Pod
+        namespace: conduit
+        label_selectors:
+          - app=conduit-frontend
+      register: pod_list
+      until: pod_list.resources | selectattr('status.phase', 'equalto', 'Running') | list | length >= 2
+      retries: 30
+      delay: 10
+
+    - name: Listar pods
+      kubernetes.core.k8s_info:
+        kind: Pod
+        namespace: conduit
+      register: pods
+
+    - name: Exibir status dos pods
+      debug:
+        msg: "Pod {{ item.metadata.name }} está {{ item.status.phase }}"
+      loop: "{{ pods.resources }}"

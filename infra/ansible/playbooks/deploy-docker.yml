@@ -1,0 +1,75 @@
+---
+- name: Deploy Backend API com Docker
+  hosts: docker_hosts
+  become: yes
+  
+  vars:
+    docker_image: "{{ docker_username }}/conduit-backend:latest"
+    container_name: conduit-backend
+    app_port: 3001
+    
+  tasks:
+    - name: Instalar Docker
+      apt:
+        name: 
+          - docker.io
+          - docker-compose
+        state: present
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Iniciar serviço Docker
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Login no Docker Hub
+      docker_login:
+        username: "{{ docker_username }}"
+        password: "{{ docker_password }}"
+      no_log: true
+
+    - name: Parar container antigo
+      docker_container:
+        name: "{{ container_name }}"
+        state: absent
+      ignore_errors: yes
+
+    - name: Pull da imagem Docker
+      docker_image:
+        name: "{{ docker_image }}"
+        source: pull
+        force_source: yes
+
+    - name: Iniciar container do backend
+      docker_container:
+        name: "{{ container_name }}"
+        image: "{{ docker_image }}"
+        state: started
+        restart_policy: always
+        published_ports:
+          - "{{ app_port }}:{{ app_port }}"
+        env:
+          PORT: "{{ app_port }}"
+          JWT_KEY: "{{ jwt_key }}"
+          DEV_DB_USERNAME: "{{ db_username }}"
+          DEV_DB_PASSWORD: "{{ db_password }}"
+          DEV_DB_NAME: "{{ db_name }}"
+          DEV_DB_HOSTNAME: "{{ db_hostname }}"
+          DEV_DB_DIALECT: "postgres"
+
+    - name: Aguardar container iniciar
+      wait_for:
+        port: "{{ app_port }}"
+        delay: 5
+        timeout: 60
+
+    - name: Verificar status do container
+      docker_container_info:
+        name: "{{ container_name }}"
+      register: container_info
+
+    - name: Exibir status
+      debug:
+        msg: "Container {{ container_name }} está {{ container_info.container.State.Status }}"
