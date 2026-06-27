@@ -1,129 +1,175 @@
-# Terraform - Azure Infrastructure
+# Terraform - Google Cloud Platform (GCP)
 
-Infraestrutura como código para provisionar recursos Azure do projeto Conduit.
+Infraestrutura como Código para o projeto Conduit usando Google Cloud Platform.
 
-## Recursos Provisionados
+## 📋 Recursos Provisionados
 
-### Compute (VM)
-- **vm-app**: VM única para Docker e CI/CD (Standard_D2s_v3)
-  - *Nota*: Docker e CI foram combinados na mesma VM devido a limitações de quota da conta Azure
-- Network Security Group com regras para SSH, HTTP, HTTPS
+### 🖥️ Compute Engine
+- **1 VM e2-standard-2** (2 vCPUs, 8 GB RAM)
+- Docker + Docker Compose pré-instalado
+- CI/CD Runner (GitHub Actions)
+- 50 GB de disco
 
-### Kubernetes (AKS)
-- **aks-conduit**: Cluster Kubernetes
-- 1 node worker (Standard_D2as_v4)
-  - *Nota*: Reduzido para 1 node devido a limitações de quota da conta Azure
-- Network plugin: Azure CNI
-- Network policy: Calico
+### ☸️ Google Kubernetes Engine (GKE)
+- **Cluster regional** com 1-3 nodes
+- Nodes e2-standard-2 (auto-scaling)
+- Workload Identity habilitado
+- Load Balancer integrado
 
-### Database (PostgreSQL)
-- **psql-conduit**: Azure Database for PostgreSQL Flexible Server
-- Versão 16
-- SKU: B_Standard_B1ms
-- Storage: 32GB
-- Database: conduit_development
+### 🗄️ Cloud SQL
+- **PostgreSQL 15**
+- Instância db-f1-micro
+- Backups automáticos diários
+- Point-in-time recovery (7 dias)
 
-### Network
-- Virtual Network: 10.0.0.0/16
-- Subnet VMs: 10.0.1.0/24
-- Subnet AKS: 10.0.2.0/24
+### 🌐 Networking
+- VPC customizada
+- Subnets separadas (VMs e GKE)
+- Firewall rules (SSH, HTTP, HTTPS)
+- IP ranges secundários para pods/services
 
-## Pré-requisitos
+## 🚀 Guia Rápido (15 minutos)
 
-- [Terraform](https://www.terraform.io/downloads) >= 1.0
-- [Azure CLI](https://docs.microsoft.com/cli/azure/install-azure-cli)
-- Conta Azure ativa
+### 1. Instalar gcloud CLI
 
-## Configuração
+**Windows:**
+```bash
+choco install gcloudsdk
+```
 
-### 1. Login no Azure
+**Linux/macOS:**
+```bash
+curl https://sdk.cloud.google.com | bash
+exec -l $SHELL
+```
+
+### 2. Configurar GCP
 
 ```bash
-az login
+# Login
+gcloud auth login
+
+# Configurar projeto
+gcloud init
+
+# Ativar APIs
+gcloud services enable compute.googleapis.com container.googleapis.com sqladmin.googleapis.com
 ```
 
-### 2. Criar arquivo de variáveis
+### 3. Gerar chave SSH (se não tiver)
 
 ```bash
-cp terraform.tfvars.example terraform.tfvars
+ssh-keygen -t rsa -b 4096 -C "gcp@conduit"
+# Salvar em: ~/.ssh/id_rsa
 ```
 
-Edite o arquivo `terraform.tfvars` com suas senhas:
+### 4. Configurar variáveis
 
-```hcl
-admin_password = "SuaSenhaSegura123!"
-postgres_admin_password = "SuaSenhaBanco123!"
+```bash
+# Editar terraform.tfvars
+# Alterar:
+# - project_id (obter com: gcloud config get-value project)
+# - db_admin_password
 ```
 
-### 3. Inicializar Terraform
+### 5. Provisionar
 
 ```bash
 terraform init
-```
-
-### 4. Validar configuração
-
-```bash
-terraform validate
-terraform fmt
-```
-
-### 5. Planejar infraestrutura
-
-```bash
 terraform plan
-```
-
-### 6. Aplicar infraestrutura
-
-```bash
 terraform apply
+# Digite: yes
 ```
 
-## Outputs
+⏱️ **Aguarde 10-15 minutos...**
 
-Após o apply, você terá acesso a:
+### 6. Configurar kubectl
 
 ```bash
-# IP público da VM
-terraform output app_vm_public_ip
-
-# Cluster AKS
-terraform output aks_cluster_name
-
-# Conectar ao AKS
-az aks get-credentials --resource-group rg-conduit-devops --name aks-conduit
-
-# PostgreSQL
-terraform output postgres_server_fqdn
-terraform output postgres_database_name
+# Comando será exibido no output
+gcloud container clusters get-credentials gke-conduit-frontend --region us-central1
+kubectl get nodes
 ```
 
-## Justificativa da Arquitetura
+### 7. Configurar Secrets GitHub
 
-Devido a limitações de quota na conta Azure utilizada, a infraestrutura foi otimizada:
+Pegue os valores dos outputs e configure em: **Settings → Secrets and variables → Actions**
 
-- **1 VM** (Standard_D2s_v3) combina Docker e CI/CD
-- **AKS com 1 node** (Standard_D2as_v4) ao invés de 2
+```
+DOCKER_USERNAME
+DOCKER_PASSWORD
+SSH_PRIVATE_KEY       = cat ~/.ssh/id_rsa
+VM_PUBLIC_IP          = (output: vm_public_ip)
+DB_HOST               = (output: db_public_ip)
+DB_USER               = conduit_user
+DB_PASSWORD           = (mesmo do terraform.tfvars)
+DB_NAME               = conduit
+JWT_KEY               = openssl rand -hex 32
+```
 
-Esta configuração mantém todos os requisitos funcionais do projeto, com recursos consolidados para adequação aos limites da conta.
+## 📤 Outputs Importantes
 
-## Destruir infraestrutura
+```bash
+# Ver todos
+terraform output
+
+# Específicos
+terraform output vm_public_ip
+terraform output db_public_ip
+terraform output gke_kubeconfig_command
+```
+
+## 🧹 Destruir Infraestrutura
 
 ```bash
 terraform destroy
+# Digite: yes
 ```
 
-## Estrutura de módulos
+## 💰 Custos Estimados
 
+| Recurso | Tipo | Custo/mês (US$) |
+|---------|------|-----------------|
+| VM (e2-standard-2) | Compute Engine | ~$50 |
+| GKE (1 node) | Kubernetes | ~$50 |
+| Cloud SQL (db-f1-micro) | PostgreSQL | ~$10 |
+| **Total** | | **~$110/mês** |
+
+💡 **Você tem $300 de créditos grátis no GCP!**
+
+## 🐛 Troubleshooting
+
+### Erro: "API not enabled"
+```bash
+gcloud services enable compute.googleapis.com container.googleapis.com sqladmin.googleapis.com
 ```
-terraform/
-├── main.tf                    # Configuração principal
-├── variables.tf               # Variáveis
-├── outputs.tf                 # Outputs
-├── terraform.tfvars.example   # Exemplo de variáveis
-└── modules/
-    ├── compute/              # Módulo VMs
-    ├── kubernetes/           # Módulo AKS
-    └── database/             # Módulo PostgreSQL
+
+### Erro: "Permission denied (publickey)"
+```bash
+# Verificar se chave existe
+ls ~/.ssh/id_rsa.pub
+
+# Se não existir, gerar
+ssh-keygen -t rsa -b 4096
 ```
+
+### GKE não conecta
+```bash
+gcloud container clusters get-credentials gke-conduit-frontend --region us-central1
+```
+
+### Cloud SQL não conecta
+```bash
+# Testar conexão
+gcloud sql connect cloudsql-conduit-postgres --user=postgres
+```
+
+## 📚 Documentação
+
+- [Google Cloud SDK](https://cloud.google.com/sdk/docs)
+- [Terraform GCP Provider](https://registry.terraform.io/providers/hashicorp/google/latest/docs)
+- [GKE Documentation](https://cloud.google.com/kubernetes-engine/docs)
+
+---
+
+**Pronto para provisionar!** 🚀

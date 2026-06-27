@@ -1,25 +1,29 @@
-variable "resource_group_name" {
-  description = "Nome do Resource Group"
+variable "project_id" {
+  description = "ID do Projeto GCP"
   type        = string
 }
 
-variable "location" {
-  description = "Localização Azure"
+variable "region" {
+  description = "Região GCP"
   type        = string
 }
 
-variable "subnet_id" {
-  description = "ID da subnet para o AKS"
+variable "network" {
+  description = "Nome da rede VPC"
+  type        = string
+}
+
+variable "subnetwork" {
+  description = "Nome da subnet"
   type        = string
 }
 
 variable "node_count" {
   description = "Número de nodes"
   type        = number
-  default     = 2
 }
 
-variable "node_vm_size" {
-  description = "Tamanho das VMs dos nodes"
+variable "machine_type" {
+  description = "Tipo de máquina para os nodes"
   type        = string
 }

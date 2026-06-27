@@ -1,24 +1,34 @@
-output "app_vm_public_ip" {
-  description = "IP público da VM de Aplicação (Docker + CI)"
-  value       = module.compute.app_vm_public_ip
+output "vm_public_ip" {
+  description = "IP público da VM (Docker + CI)"
+  value       = module.compute.vm_public_ip
 }
 
-output "aks_cluster_name" {
-  description = "Nome do cluster AKS"
+output "vm_name" {
+  description = "Nome da VM"
+  value       = module.compute.vm_name
+}
+
+output "gke_cluster_name" {
+  description = "Nome do cluster GKE"
   value       = module.kubernetes.cluster_name
 }
 
-output "aks_kubeconfig" {
-  description = "Comando para obter kubeconfig do AKS"
-  value       = "az aks get-credentials --resource-group ${var.resource_group_name} --name ${module.kubernetes.cluster_name}"
+output "gke_kubeconfig_command" {
+  description = "Comando para obter kubeconfig do GKE"
+  value       = "gcloud container clusters get-credentials ${module.kubernetes.cluster_name} --region ${var.region} --project ${var.project_id}"
 }
 
-output "postgres_server_fqdn" {
-  description = "FQDN do servidor PostgreSQL"
-  value       = module.database.postgres_server_fqdn
+output "db_public_ip" {
+  description = "IP público do Cloud SQL"
+  value       = module.database.public_ip
 }
 
-output "postgres_database_name" {
+output "db_connection_name" {
+  description = "Connection name do Cloud SQL"
+  value       = module.database.connection_name
+}
+
+output "database_name" {
   description = "Nome do banco de dados"
-  value       = module.database.postgres_database_name
+  value       = module.database.database_name
 }

@@ -1,30 +1,34 @@
-variable "resource_group_name" {
-  description = "Nome do Resource Group"
+variable "project_id" {
+  description = "ID do Projeto GCP"
   type        = string
 }
 
-variable "location" {
-  description = "Localização Azure"
+variable "region" {
+  description = "Região GCP"
   type        = string
 }
 
-variable "subnet_id" {
-  description = "ID da subnet"
+variable "zone" {
+  description = "Zona GCP"
   type        = string
 }
 
-variable "vm_size_app" {
-  description = "Tamanho da VM de Aplicação (Docker + CI)"
+variable "network" {
+  description = "Nome da rede VPC"
+  type        = string
+}
+
+variable "subnetwork" {
+  description = "Nome da subnet"
+  type        = string
+}
+
+variable "machine_type" {
+  description = "Tipo de máquina"
   type        = string
 }
 
 variable "admin_username" {
   description = "Usuário admin"
   type        = string
-}
-
-variable "admin_password" {
-  description = "Senha admin"
-  type        = string
-  sensitive   = true
 }

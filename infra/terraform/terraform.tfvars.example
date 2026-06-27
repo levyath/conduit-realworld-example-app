@@ -1,16 +1,18 @@
-# Resource Group
-resource_group_name = "rg-conduit-devops"
-location            = "North Central US"
+# Copie este arquivo para terraform.tfvars e preencha os valores
+# Obter project_id: gcloud config get-value project
 
-# VM Aplicação (Docker + CI combinados)
-vm_size_app    = "Standard_D2s_v3"
-admin_username = "azureuser"
-admin_password = "SuaSenhaSegura123!"
+project_id = "seu-projeto-gcp"
+region     = "us-central1"
+zone       = "us-central1-a"
 
-# AKS (1 node devido à limitação da conta)
-aks_node_count   = 1
-aks_node_vm_size = "Standard_D2as_v4"
+# VM Configuration (Docker + CI)
+vm_machine_type = "e2-standard-2"  # 2 vCPUs, 8 GB RAM
+admin_username  = "gcpuser"
 
-# PostgreSQL
-postgres_admin_login    = "psqladmin"
-postgres_admin_password = "SuaSenhaBanco123!"
+# GKE Configuration (Frontend)
+gke_node_count   = 1
+gke_machine_type = "e2-standard-2"  # 2 vCPUs, 8 GB RAM
+
+# Database Configuration (Cloud SQL PostgreSQL)
+db_admin_password = "sua-senha-segura-aqui"
+db_tier           = "db-f1-micro"

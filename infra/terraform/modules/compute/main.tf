@@ -1,115 +1,72 @@
-# Network Security Group
-resource "azurerm_network_security_group" "vms" {
-  name                = "nsg-vms"
-  location            = var.location
-  resource_group_name = var.resource_group_name
+# VM para Docker + CI
+resource "google_compute_instance" "app_vm" {
+  name         = "vm-conduit-app"
+  machine_type = var.machine_type
+  zone         = var.zone
 
-  security_rule {
-    name                       = "SSH"
-    priority                   = 100
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "22"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
+  tags = ["ssh-enabled", "web-server"]
+
+  boot_disk {
+    initialize_params {
+      image = "ubuntu-os-cloud/ubuntu-2204-lts"
+      size  = 50 # GB
+      type  = "pd-standard"
+    }
   }
 
-  security_rule {
-    name                       = "HTTP"
-    priority                   = 110
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "80"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
+  network_interface {
+    network    = var.network
+    subnetwork = var.subnetwork
+
+    access_config {
+      # Ephemeral public IP
+    }
   }
 
-  security_rule {
-    name                       = "HTTPS"
-    priority                   = 120
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "443"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
+  metadata = {
+    ssh-keys = "${var.admin_username}:${file("~/.ssh/id_rsa.pub")}"
   }
 
-  security_rule {
-    name                       = "AppPort"
-    priority                   = 130
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "3001"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-  }
-}
+  metadata_startup_script = <<-EOF
+    #!/bin/bash
+    set -e
+    
+    # Atualizar sistema
+    apt-get update
+    apt-get upgrade -y
+    
+    # Instalar Docker
+    curl -fsSL https://get.docker.com -o get-docker.sh
+    sh get-docker.sh
+    
+    # Adicionar usuário ao grupo docker
+    usermod -aG docker ${var.admin_username}
+    
+    # Instalar Docker Compose
+    curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+    chmod +x /usr/local/bin/docker-compose
+    
+    # Instalar Git
+    apt-get install -y git
+    
+    # Iniciar Docker
+    systemctl enable docker
+    systemctl start docker
+    
+    # Criar diretório para aplicação
+    mkdir -p /opt/conduit
+    chown -R ${var.admin_username}:${var.admin_username} /opt/conduit
+    
+    echo "VM configurada com sucesso!" > /var/log/startup-script.log
+  EOF
 
-# VM Aplicação - Public IP
-resource "azurerm_public_ip" "app_vm" {
-  name                = "pip-app-vm"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  allocation_method   = "Static"
-  sku                 = "Standard"
-}
-
-# VM Aplicação - Network Interface
-resource "azurerm_network_interface" "app_vm" {
-  name                = "nic-app-vm"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-
-  ip_configuration {
-    name                          = "internal"
-    subnet_id                     = var.subnet_id
-    private_ip_address_allocation = "Dynamic"
-    public_ip_address_id          = azurerm_public_ip.app_vm.id
-  }
-}
-
-# Associa NSG ao NIC da VM Aplicação
-resource "azurerm_network_interface_security_group_association" "app_vm" {
-  network_interface_id      = azurerm_network_interface.app_vm.id
-  network_security_group_id = azurerm_network_security_group.vms.id
-}
-
-# VM Aplicação (Docker + CI)
-resource "azurerm_linux_virtual_machine" "app_vm" {
-  name                = "vm-app"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  size                = var.vm_size_app
-  admin_username      = var.admin_username
-  admin_password      = var.admin_password
-  disable_password_authentication = false
-
-  network_interface_ids = [
-    azurerm_network_interface.app_vm.id,
-  ]
-
-  os_disk {
-    caching              = "ReadWrite"
-    storage_account_type = "Standard_LRS"
+  service_account {
+    scopes = ["cloud-platform"]
   }
 
-  source_image_reference {
-    publisher = "Canonical"
-    offer     = "0001-com-ubuntu-server-jammy"
-    sku       = "22_04-lts-gen2"
-    version   = "latest"
-  }
-
-  tags = {
+  labels = {
     environment = "production"
-    role        = "docker-ci-host"
+    project     = "conduit"
+    role        = "docker-ci"
   }
 }

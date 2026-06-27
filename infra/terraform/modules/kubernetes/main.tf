@@ -1,27 +1,82 @@
-resource "azurerm_kubernetes_cluster" "aks" {
-  name                = "aks-conduit"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  dns_prefix          = "conduit"
+# GKE Cluster
+resource "google_container_cluster" "primary" {
+  name     = "gke-conduit-frontend"
+  location = var.region
 
-  default_node_pool {
-    name       = "default"
-    node_count = var.node_count
-    vm_size    = var.node_vm_size
-    vnet_subnet_id = var.subnet_id
+  # Removemos o node pool padrão para criar um customizado
+  remove_default_node_pool = true
+  initial_node_count       = 1
+
+  network    = var.network
+  subnetwork = var.subnetwork
+
+  # IP allocation policy para usar secondary ranges
+  ip_allocation_policy {
+    cluster_secondary_range_name  = "gke-pods"
+    services_secondary_range_name = "gke-services"
   }
 
-  identity {
-    type = "SystemAssigned"
+  # Workload Identity
+  workload_identity_config {
+    workload_pool = "${var.project_id}.svc.id.goog"
   }
 
-  network_profile {
-    network_plugin = "azure"
-    network_policy = "calico"
+  # Addons
+  addons_config {
+    http_load_balancing {
+      disabled = false
+    }
+    horizontal_pod_autoscaling {
+      disabled = false
+    }
   }
 
-  tags = {
-    environment = "production"
-    project     = "conduit"
+  # Maintenance window
+  maintenance_policy {
+    daily_maintenance_window {
+      start_time = "03:00"
+    }
+  }
+}
+
+# Node Pool
+resource "google_container_node_pool" "primary_nodes" {
+  name       = "node-pool-conduit"
+  location   = var.region
+  cluster    = google_container_cluster.primary.name
+  node_count = var.node_count
+
+  node_config {
+    machine_type = var.machine_type
+    disk_size_gb = 30
+    disk_type    = "pd-standard"
+
+    # OAuth scopes
+    oauth_scopes = [
+      "https://www.googleapis.com/auth/cloud-platform"
+    ]
+
+    labels = {
+      environment = "production"
+      project     = "conduit"
+      role        = "frontend"
+    }
+
+    tags = ["gke-node", "conduit-frontend"]
+
+    # Workload Identity
+    workload_metadata_config {
+      mode = "GKE_METADATA"
+    }
+  }
+
+  management {
+    auto_repair  = true
+    auto_upgrade = true
+  }
+
+  autoscaling {
+    min_node_count = 1
+    max_node_count = 3
   }
 }

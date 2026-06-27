@@ -1,53 +1,52 @@
-variable "resource_group_name" {
-  description = "Nome do Resource Group"
+variable "project_id" {
+  description = "ID do Projeto GCP"
   type        = string
-  default     = "rg-conduit-devops"
 }
 
-variable "location" {
-  description = "Localização dos recursos Azure"
+variable "region" {
+  description = "Região GCP"
   type        = string
-  default     = "North Central US"
+  default     = "us-central1"
 }
 
-variable "vm_size_app" {
-  description = "Tamanho da VM para Docker e CI (combinados)"
+variable "zone" {
+  description = "Zona GCP"
   type        = string
-  default     = "Standard_D2s_v3"
+  default     = "us-central1-a"
+}
+
+variable "vm_machine_type" {
+  description = "Tipo de máquina para VM (Docker + CI)"
+  type        = string
+  default     = "e2-standard-2" # 2 vCPUs, 8 GB RAM
 }
 
 variable "admin_username" {
-  description = "Usuário admin das VMs"
+  description = "Usuário admin da VM"
   type        = string
-  default     = "azureuser"
+  default     = "gcpuser"
 }
 
-variable "admin_password" {
-  description = "Senha admin das VMs"
-  type        = string
-  sensitive   = true
-}
-
-variable "postgres_admin_login" {
-  description = "Usuário admin do PostgreSQL"
-  type        = string
-  default     = "psqladmin"
-}
-
-variable "postgres_admin_password" {
-  description = "Senha admin do PostgreSQL"
-  type        = string
-  sensitive   = true
-}
-
-variable "aks_node_count" {
-  description = "Número de nodes no AKS"
+variable "gke_node_count" {
+  description = "Número de nodes no GKE"
   type        = number
   default     = 1
 }
 
-variable "aks_node_vm_size" {
-  description = "Tamanho das VMs do AKS"
+variable "gke_machine_type" {
+  description = "Tipo de máquina para nodes GKE"
   type        = string
-  default     = "Standard_D2as_v4"
+  default     = "e2-standard-2" # 2 vCPUs, 8 GB RAM
+}
+
+variable "db_admin_password" {
+  description = "Senha do admin do PostgreSQL"
+  type        = string
+  sensitive   = true
+}
+
+variable "db_tier" {
+  description = "Tier do Cloud SQL"
+  type        = string
+  default     = "db-f1-micro" # Instância pequena
 }

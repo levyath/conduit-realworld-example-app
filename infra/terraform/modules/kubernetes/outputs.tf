@@ -1,15 +1,16 @@
 output "cluster_name" {
-  description = "Nome do cluster AKS"
-  value       = azurerm_kubernetes_cluster.aks.name
+  description = "Nome do cluster GKE"
+  value       = google_container_cluster.primary.name
 }
 
-output "cluster_id" {
-  description = "ID do cluster AKS"
-  value       = azurerm_kubernetes_cluster.aks.id
+output "cluster_endpoint" {
+  description = "Endpoint do cluster GKE"
+  value       = google_container_cluster.primary.endpoint
+  sensitive   = true
 }
 
-output "kube_config" {
-  description = "Configuração do Kubernetes"
-  value       = azurerm_kubernetes_cluster.aks.kube_config_raw
+output "cluster_ca_certificate" {
+  description = "Certificado CA do cluster"
+  value       = google_container_cluster.primary.master_auth[0].cluster_ca_certificate
   sensitive   = true
 }

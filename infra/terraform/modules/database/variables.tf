@@ -1,20 +1,25 @@
-variable "resource_group_name" {
-  description = "Nome do Resource Group"
+variable "project_id" {
+  description = "ID do Projeto GCP"
   type        = string
 }
 
-variable "location" {
-  description = "Localização Azure"
+variable "region" {
+  description = "Região GCP"
   type        = string
 }
 
-variable "postgres_admin_login" {
-  description = "Usuário admin do PostgreSQL"
+variable "network" {
+  description = "ID da rede VPC"
   type        = string
 }
 
-variable "postgres_admin_password" {
-  description = "Senha admin do PostgreSQL"
+variable "db_admin_password" {
+  description = "Senha do admin do PostgreSQL"
   type        = string
   sensitive   = true
+}
+
+variable "db_tier" {
+  description = "Tier do Cloud SQL"
+  type        = string
 }
