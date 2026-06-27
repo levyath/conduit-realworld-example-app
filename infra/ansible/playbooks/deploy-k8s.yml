@@ -1,21 +1,84 @@
 ---
-- name: Deploy Frontend no Kubernetes
+- name: Deploy Conduit Application to Kubernetes
   hosts: localhost
   connection: local
   
   vars:
     k8s_manifests_dir: "../../kubernetes"
+    gke_cluster_name: "{{ lookup('env', 'GKE_CLUSTER_NAME') | default('gke-conduit-frontend', true) }}"
+    gcp_project: "{{ lookup('env', 'GCP_PROJECT') | default('project-75d2944a-cedf-48bb-815', true) }}"
+    gcp_region: "{{ lookup('env', 'GCP_REGION') | default('us-central1', true) }}"
+    db_user: "{{ lookup('env', 'DB_USER') | default('conduit_user', true) }}"
+    db_password: "{{ lookup('env', 'DB_PASSWORD') }}"
+    db_host: "{{ lookup('env', 'DB_HOST') }}"
+    jwt_key: "{{ lookup('env', 'JWT_KEY') }}"
     
   tasks:
+    - name: Verificar se gcloud está instalado
+      command: gcloud version
+      register: gcloud_check
+      changed_when: false
+      failed_when: false
+
     - name: Verificar se kubectl está instalado
       command: kubectl version --client
       register: kubectl_check
       changed_when: false
 
+    - name: Configurar credenciais do GKE
+      shell: |
+        gcloud container clusters get-credentials {{ gke_cluster_name }} \
+          --region {{ gcp_region }} \
+          --project {{ gcp_project }}
+      when: gcloud_check.rc == 0
+
     - name: Aplicar namespace
       kubernetes.core.k8s:
         state: present
         src: "{{ k8s_manifests_dir }}/namespace.yaml"
+
+    - name: Criar secret para credenciais do banco de dados
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: db-credentials
+            namespace: conduit-prod
+          type: Opaque
+          stringData:
+            username: "{{ db_user }}"
+            password: "{{ db_password }}"
+
+    - name: Criar secret para JWT
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: jwt-secret
+            namespace: conduit-prod
+          type: Opaque
+          stringData:
+            jwt_key: "{{ jwt_key }}"
+
+    - name: Atualizar ConfigMap do backend com DB_HOST correto
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: backend-config
+            namespace: conduit-prod
+            labels:
+              app: backend
+          data:
+            db_name: "conduit"
+            db_hostname: "{{ db_host }}"
+            db_dialect: "postgres"
 
     - name: Aplicar ResourceQuota
       kubernetes.core.k8s:
@@ -27,49 +90,139 @@
         state: present
         src: "{{ k8s_manifests_dir }}/limit-range.yaml"
 
-    - name: Aplicar Deployment do Frontend
+    # Database Layer
+    - name: Aplicar PostgreSQL Service
       kubernetes.core.k8s:
         state: present
-        src: "{{ k8s_manifests_dir }}/deployment.yaml"
+        src: "{{ k8s_manifests_dir }}/postgres-service.yaml"
 
-    - name: Aplicar Service
+    - name: Aplicar PostgreSQL StatefulSet (Read Cluster)
       kubernetes.core.k8s:
         state: present
-        src: "{{ k8s_manifests_dir }}/service.yaml"
+        src: "{{ k8s_manifests_dir }}/postgres-statefulset.yaml"
 
-    - name: Aplicar HPA
+    - name: Aguardar PostgreSQL pods ficarem prontos
+      kubernetes.core.k8s_info:
+        kind: Pod
+        namespace: conduit-prod
+        label_selectors:
+          - app=postgres
+      register: postgres_pods
+      until: postgres_pods.resources | selectattr('status.phase', 'equalto', 'Running') | list | length >= 2
+      retries: 30
+      delay: 10
+
+    # Backend Layer
+    - name: Aplicar Backend ConfigMap
       kubernetes.core.k8s:
         state: present
-        src: "{{ k8s_manifests_dir }}/hpa.yaml"
+        src: "{{ k8s_manifests_dir }}/backend-configmap.yaml"
+
+    - name: Aplicar Backend Deployment
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ k8s_manifests_dir }}/backend-deployment.yaml"
+
+    - name: Aplicar Backend Service
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ k8s_manifests_dir }}/backend-service.yaml"
+
+    - name: Aplicar Backend HPA
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ k8s_manifests_dir }}/backend-hpa.yaml"
+
+    - name: Aguardar Backend pods ficarem prontos
+      kubernetes.core.k8s_info:
+        kind: Pod
+        namespace: conduit-prod
+        label_selectors:
+          - app=backend
+      register: backend_pods
+      until: backend_pods.resources | selectattr('status.phase', 'equalto', 'Running') | list | length >= 2
+      retries: 30
+      delay: 10
+
+    # Frontend Layer
+    - name: Aplicar Frontend Deployment
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ k8s_manifests_dir }}/frontend-deployment.yaml"
+
+    - name: Aplicar Frontend Service
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ k8s_manifests_dir }}/frontend-service.yaml"
+
+    - name: Aplicar Frontend HPA
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ k8s_manifests_dir }}/frontend-hpa.yaml"
+
+    - name: Aguardar Frontend pods ficarem prontos
+      kubernetes.core.k8s_info:
+        kind: Pod
+        namespace: conduit-prod
+        label_selectors:
+          - app=frontend
+      register: frontend_pods
+      until: frontend_pods.resources | selectattr('status.phase', 'equalto', 'Running') | list | length >= 2
+      retries: 30
+      delay: 10
+
+    # Gateway Layer
+    - name: Aplicar Gateway ConfigMap
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ k8s_manifests_dir }}/gateway-configmap.yaml"
+
+    - name: Aplicar Gateway Deployment
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ k8s_manifests_dir }}/gateway-deployment.yaml"
+
+    - name: Aplicar Gateway Service (LoadBalancer)
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ k8s_manifests_dir }}/gateway-service.yaml"
+
+    - name: Aguardar Gateway pods ficarem prontos
+      kubernetes.core.k8s_info:
+        kind: Pod
+        namespace: conduit-prod
+        label_selectors:
+          - app=gateway
+      register: gateway_pods
+      until: gateway_pods.resources | selectattr('status.phase', 'equalto', 'Running') | list | length >= 2
+      retries: 30
+      delay: 10
 
     - name: Aplicar Ingress
       kubernetes.core.k8s:
         state: present
         src: "{{ k8s_manifests_dir }}/ingress.yaml"
 
-    - name: Aplicar StatefulSet do PostgreSQL
-      kubernetes.core.k8s:
-        state: present
-        src: "{{ k8s_manifests_dir }}/database/statefulset-replica.yaml"
-
-    - name: Aguardar pods ficarem prontos
+    # Status Summary
+    - name: Listar todos os pods
       kubernetes.core.k8s_info:
         kind: Pod
-        namespace: conduit
-        label_selectors:
-          - app=conduit-frontend
-      register: pod_list
-      until: pod_list.resources | selectattr('status.phase', 'equalto', 'Running') | list | length >= 2
-      retries: 30
-      delay: 10
-
-    - name: Listar pods
-      kubernetes.core.k8s_info:
-        kind: Pod
-        namespace: conduit
-      register: pods
+        namespace: conduit-prod
+      register: all_pods
 
     - name: Exibir status dos pods
       debug:
         msg: "Pod {{ item.metadata.name }} está {{ item.status.phase }}"
-      loop: "{{ pods.resources }}"
+      loop: "{{ all_pods.resources }}"
+
+    - name: Obter External IP do Gateway
+      kubernetes.core.k8s_info:
+        kind: Service
+        namespace: conduit-prod
+        name: gateway-service
+      register: gateway_service
+
+    - name: Exibir URL de acesso
+      debug:
+        msg: "Application available at: http://{{ gateway_service.resources[0].status.loadBalancer.ingress[0].ip }}"
+      when: gateway_service.resources[0].status.loadBalancer.ingress is defined
