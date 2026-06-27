@@ -1,75 +1,130 @@
 ---
-- name: Deploy Backend API com Docker
+- name: Deploy Conduit com Docker Compose
   hosts: docker_hosts
   become: yes
   
   vars:
-    docker_image: "{{ docker_username }}/conduit-backend:latest"
-    container_name: conduit-backend
-    app_port: 3001
+    app_dir: /opt/conduit
+    docker_compose_version: "2.24.0"
     
   tasks:
-    - name: Instalar Docker
+    - name: Verificar se Docker está instalado
+      command: docker --version
+      register: docker_check
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Instalar Docker (se não estiver instalado)
+      when: docker_check.rc != 0
+      block:
+        - name: Baixar script de instalação do Docker
+          get_url:
+            url: https://get.docker.com
+            dest: /tmp/get-docker.sh
+            mode: '0755'
+
+        - name: Executar instalação do Docker
+          shell: sh /tmp/get-docker.sh
+
+        - name: Adicionar usuário ao grupo docker
+          user:
+            name: "{{ ansible_user }}"
+            groups: docker
+            append: yes
+
+        - name: Iniciar e habilitar Docker
+          systemd:
+            name: docker
+            state: started
+            enabled: yes
+
+    - name: Verificar se Docker Compose está instalado
+      command: docker-compose --version
+      register: compose_check
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Instalar Docker Compose (se não estiver instalado)
+      when: compose_check.rc != 0
+      get_url:
+        url: "https://github.com/docker/compose/releases/download/v{{ docker_compose_version }}/docker-compose-{{ ansible_system }}-{{ ansible_machine }}"
+        dest: /usr/local/bin/docker-compose
+        mode: '0755'
+
+    - name: Instalar Git (se necessário)
       apt:
-        name: 
-          - docker.io
-          - docker-compose
+        name: git
         state: present
         update_cache: yes
-      when: ansible_os_family == "Debian"
 
-    - name: Iniciar serviço Docker
-      service:
-        name: docker
-        state: started
-        enabled: yes
+    - name: Criar diretório da aplicação
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
 
-    - name: Login no Docker Hub
-      docker_login:
-        username: "{{ docker_username }}"
-        password: "{{ docker_password }}"
-      no_log: true
+    - name: Clonar repositório (ou atualizar)
+      git:
+        repo: "https://github.com/{{ github_username }}/conduit-realworld-example-app.git"
+        dest: "{{ app_dir }}"
+        version: main
+        force: yes
+      become_user: "{{ ansible_user }}"
 
-    - name: Parar container antigo
-      docker_container:
-        name: "{{ container_name }}"
-        state: absent
+    - name: Criar arquivo .env
+      copy:
+        dest: "{{ app_dir }}/.env"
+        content: |
+          DB_HOST={{ db_hostname }}
+          DB_USER={{ db_username }}
+          DB_PASSWORD={{ db_password }}
+          DB_NAME={{ db_name }}
+          JWT_KEY={{ jwt_key }}
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0600'
+
+    - name: Parar containers antigos
+      command: docker-compose down
+      args:
+        chdir: "{{ app_dir }}"
       ignore_errors: yes
+      become_user: "{{ ansible_user }}"
 
-    - name: Pull da imagem Docker
-      docker_image:
-        name: "{{ docker_image }}"
-        source: pull
-        force_source: yes
+    - name: Build e iniciar containers
+      command: docker-compose up -d --build
+      args:
+        chdir: "{{ app_dir }}"
+      become_user: "{{ ansible_user }}"
 
-    - name: Iniciar container do backend
-      docker_container:
-        name: "{{ container_name }}"
-        image: "{{ docker_image }}"
-        state: started
-        restart_policy: always
-        published_ports:
-          - "{{ app_port }}:{{ app_port }}"
-        env:
-          PORT: "{{ app_port }}"
-          JWT_KEY: "{{ jwt_key }}"
-          DEV_DB_USERNAME: "{{ db_username }}"
-          DEV_DB_PASSWORD: "{{ db_password }}"
-          DEV_DB_NAME: "{{ db_name }}"
-          DEV_DB_HOSTNAME: "{{ db_hostname }}"
-          DEV_DB_DIALECT: "postgres"
-
-    - name: Aguardar container iniciar
+    - name: Aguardar backend iniciar
       wait_for:
-        port: "{{ app_port }}"
+        port: 3001
+        delay: 10
+        timeout: 120
+
+    - name: Aguardar frontend iniciar
+      wait_for:
+        port: 3000
         delay: 5
         timeout: 60
 
-    - name: Verificar status do container
-      docker_container_info:
-        name: "{{ container_name }}"
-      register: container_info
+    - name: Verificar containers rodando
+      command: docker ps
+      register: docker_ps_output
+      become_user: "{{ ansible_user }}"
 
-    - name: Exibir status
+    - name: Exibir containers
       debug:
-        msg: "Container {{ container_name }} está {{ container_info.container.State.Status }}"
+        msg: "{{ docker_ps_output.stdout_lines }}"
+
+    - name: Verificar logs do backend
+      command: docker logs conduit-backend-1 --tail 20
+      register: backend_logs
+      become_user: "{{ ansible_user }}"
+
+    - name: Exibir logs do backend
+      debug:
+        msg: "{{ backend_logs.stdout_lines }}"

@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: infra/apis/backend/Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PROD_DB_USERNAME=conduit_user
+      - PROD_DB_PASSWORD=${DB_PASSWORD}
+      - PROD_DB_NAME=${DB_NAME}
+      - PROD_DB_HOSTNAME=${DB_HOST}
+      - PROD_DB_DIALECT=postgres
+      - JWT_KEY=${JWT_KEY}
+
+  frontend:
+    build:
+      context: .
+      dockerfile: infra/apis/frontend/Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend

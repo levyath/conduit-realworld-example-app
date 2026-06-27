@@ -154,26 +154,29 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ansible
 
-      - name: Configurar SSH
+      - name: Configurar SSH e Ansible Hosts
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.DOCKER_VM_IP }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.VM_PUBLIC_IP }} >> ~/.ssh/known_hosts
+          
+          # Atualizar hosts.ini com IP da VM
+          sed -i "s/# IP será preenchido dinamicamente pelo GitHub Actions/${{ secrets.VM_PUBLIC_IP }}/" infra/ansible/hosts.ini
         continue-on-error: true
 
-      - name: Deploy Docker (Backend)
+      - name: Deploy Docker (Backend + Frontend)
         run: |
           cd infra/ansible
-          echo "Deploy Docker simulado"
-          # ansible-playbook playbooks/deploy-docker.yml \
-          #   -e "docker_username=${{ secrets.DOCKER_USERNAME }}" \
-          #   -e "docker_password=${{ secrets.DOCKER_PASSWORD }}" \
-          #   -e "jwt_key=${{ secrets.JWT_KEY }}" \
-          #   -e "db_username=${{ secrets.DB_USERNAME }}" \
-          #   -e "db_password=${{ secrets.DB_PASSWORD }}" \
-          #   -e "db_name=${{ secrets.DB_NAME }}" \
-          #   -e "db_hostname=${{ secrets.DB_HOSTNAME }}"
+          ansible-playbook playbooks/deploy-docker.yml \
+            -e "github_username=levyath" \
+            -e "docker_username=${{ secrets.DOCKER_USERNAME }}" \
+            -e "docker_password=${{ secrets.DOCKER_PASSWORD }}" \
+            -e "jwt_key=${{ secrets.JWT_KEY }}" \
+            -e "db_username=${{ secrets.DB_USER }}" \
+            -e "db_password=${{ secrets.DB_PASSWORD }}" \
+            -e "db_name=${{ secrets.DB_NAME }}" \
+            -e "db_hostname=${{ secrets.DB_HOST }}"
         continue-on-error: true
 
       - name: Deploy Kubernetes (Frontend)
