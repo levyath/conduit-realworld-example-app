@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: conduit
+  name: conduit-prod
   labels:
-    name: conduit
+    name: conduit-prod
     environment: production
