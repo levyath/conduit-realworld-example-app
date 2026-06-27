@@ -24,7 +24,7 @@ resource "google_compute_instance" "app_vm" {
   }
 
   metadata = {
-    ssh-keys = "${var.admin_username}:${file("~/.ssh/gcp-deploy.pub")}"
+    ssh-keys = "${var.admin_username}:${file(pathexpand(var.ssh_public_key_path))}"
   }
 
   metadata_startup_script = file("${path.module}/startup-script.sh")

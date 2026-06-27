@@ -32,3 +32,9 @@ variable "admin_username" {
   description = "Usuário admin"
   type        = string
 }
+
+variable "ssh_public_key_path" {
+  description = "Caminho para a chave SSH pública"
+  type        = string
+  default     = "~/.ssh/gcp-deploy.pub"
+}
