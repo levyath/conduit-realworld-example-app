@@ -3,6 +3,9 @@ resource "google_container_cluster" "primary" {
   name     = "gke-conduit-frontend"
   location = var.region
 
+  # Permitir deletar para testes
+  deletion_protection = false
+
   # Removemos o node pool padrão para criar um customizado
   remove_default_node_pool = true
   initial_node_count       = 1
