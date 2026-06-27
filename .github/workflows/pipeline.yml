@@ -130,12 +130,30 @@ jobs:
             ${{ env.DOCKER_IMAGE }}:latest
             ${{ env.DOCKER_IMAGE }}:${{ github.sha }}
 
-      - name: Scan imagem Docker com Trivy
+      - name: Build e Push imagem Frontend
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./infra/apis/frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/conduit-frontend:latest
+            ${{ secrets.DOCKER_USERNAME }}/conduit-frontend:${{ github.sha }}
+
+      - name: Scan imagem Backend com Trivy
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.DOCKER_IMAGE }}:latest
           format: 'sarif'
-          output: 'trivy-image-results.sarif'
+          output: 'trivy-backend-results.sarif'
+        continue-on-error: true
+
+      - name: Scan imagem Frontend com Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ secrets.DOCKER_USERNAME }}/conduit-frontend:latest
+          format: 'sarif'
+          output: 'trivy-frontend-results.sarif'
         continue-on-error: true
 
   # Job 5: Deploy com Ansible
@@ -179,11 +197,33 @@ jobs:
             -e "db_hostname=${{ secrets.DB_HOST }}"
         continue-on-error: true
 
-      - name: Deploy Kubernetes (Frontend)
+      - name: Instalar gcloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: project-75d2944a-cedf-48bb-815
+
+      - name: Instalar kubectl
         run: |
-          echo "Deploy Kubernetes simulado"
-          # cd infra/ansible
-          # ansible-playbook playbooks/deploy-k8s.yml
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+
+      - name: Instalar Ansible Kubernetes Collection
+        run: |
+          ansible-galaxy collection install kubernetes.core
+
+      - name: Deploy Kubernetes (Full Stack)
+        env:
+          GKE_CLUSTER_NAME: "gke-conduit-frontend"
+          GCP_PROJECT: "project-75d2944a-cedf-48bb-815"
+          GCP_REGION: "us-central1"
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          JWT_KEY: ${{ secrets.JWT_KEY }}
+        run: |
+          cd infra/ansible
+          ansible-playbook playbooks/deploy-k8s.yml
         continue-on-error: true
 
   # Job 6: DAST com OWASP ZAP (DESABILITADO)
