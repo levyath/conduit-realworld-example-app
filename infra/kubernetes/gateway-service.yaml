@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway-service
+  namespace: conduit-prod
+  labels:
+    app: gateway
+  annotations:
+    cloud.google.com/load-balancer-type: "External"
+spec:
+  type: LoadBalancer
+  selector:
+    app: gateway
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 80
+  sessionAffinity: ClientIP
